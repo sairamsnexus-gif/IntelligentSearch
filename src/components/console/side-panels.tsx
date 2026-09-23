@@ -56,7 +56,7 @@ export function LocationPanel({ target, candidates }: { target: TargetProfile | 
         {Array.from({ length: 8 }).map((_, i) => (
           <line key={`h${i}`} x1={0} y1={(i * H) / 7} x2={W} y2={(i * H) / 7} stroke="#132028" />
         ))}
-        {ms.map((m) => (
+        {ms.map((m, idx) => (
           <g key={m.city}>
             {m.target && (
               <>
@@ -66,7 +66,7 @@ export function LocationPanel({ target, candidates }: { target: TargetProfile | 
               </>
             )}
             <circle cx={px(m.lon)} cy={py(m.lat)} r={3 + Math.min(m.count, 6)} fill={m.count ? "rgba(245,184,61,0.25)" : "rgba(46,230,214,0.2)"} stroke={m.count ? "#f5b83d" : "#2ee6d6"} />
-            <text x={px(m.lon) + 9} y={py(m.lat) - 7} fill="#cfdde3" fontSize="9.5" className="mono">
+            <text x={px(m.lon) + (idx % 2 ? -9 : 9)} y={py(m.lat) + (idx % 2 ? 14 : -7)} textAnchor={idx % 2 ? "end" : "start"} fill="#cfdde3" fontSize="9.5" className="mono">
               {m.city.toUpperCase()}
             </text>
           </g>

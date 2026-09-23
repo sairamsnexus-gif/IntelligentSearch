@@ -94,11 +94,11 @@ export function CandidateCard({ c, rank, focused, isDemo, onFocus, onEvidence, o
         <span className="text-right">checked {fmtDate(c.lastCheckedAt, true)}</span>
       </div>
 
-      <div className="mt-auto flex gap-2">
-        <Button size="sm" variant="outline" className="flex-1" onClick={onEvidence} data-testid="view-evidence">
+      <div className="mt-auto grid grid-cols-2 gap-2 [&_button]:min-w-0 [&_button]:px-2 [&_button]:tracking-[0.06em]">
+        <Button size="sm" variant="outline" onClick={onEvidence} data-testid="view-evidence">
           <FileSearch /> View evidence
         </Button>
-        <Button size="sm" variant="primary" className="flex-1" onClick={onSelect} disabled={disabled} data-testid="select-person">
+        <Button size="sm" variant="primary" onClick={onSelect} disabled={disabled} data-testid="select-person">
           <UserCheck /> Select person
         </Button>
       </div>
@@ -379,7 +379,7 @@ export function CandidatesPanel({
           {!running && session.resolution && !session.personId && <RefineBox session={session} resolution={session.resolution} onRefined={onRefined} />}
           {running && cands.length === 0 && <Empty>Resolving identities from search results…</Empty>}
           {!running && cands.length === 0 && <Empty>No candidate persons yet. Add another detail above.</Empty>}
-          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(290px,1fr))]">
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
             {cands.map((c, i) => (
               <CandidateCard key={c.clusterKey} c={c} rank={i + 1} focused={focusedKey === c.clusterKey} isDemo={session.isDemo} onFocus={() => setFocused(c.clusterKey)} onEvidence={() => setEvidenceKey(c.clusterKey)} onSelect={() => setSelectKey(c.clusterKey)} disabled={running || Boolean(session.personId)} />
             ))}

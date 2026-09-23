@@ -24,12 +24,16 @@ export function PersonView({ personId, isAdmin }: { personId: string; isAdmin: b
   const { data: p, reload, error } = useApi<PersonDetailView>(`/api/persons/${personId}`, 2000);
   const [adding, setAdding] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [scanRequestedAt, setScanRequestedAt] = useState<number | null>(null);
 
   if (error) return <div className="p-6 text-alert">{error}</div>;
   if (!p) return <div className="p-6 text-muted">Loading person…</div>;
 
+  // Optimistic: show "scanning" from the click until the scan's completion time is newer than the request.
+  const scanning = p.monitoring.running || (scanRequestedAt !== null && (!p.monitoring.lastRunAt || Date.parse(p.monitoring.lastRunAt) < scanRequestedAt) && !scanError);
   const scan = async () => {
     setScanError(null);
+    setScanRequestedAt(Date.now());
     try {
       await apiFetch(`/api/persons/${personId}/scan`, { method: "POST" });
       void reload();
@@ -65,13 +69,13 @@ export function PersonView({ personId, isAdmin }: { personId: string; isAdmin: b
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {p.isDemo && <DemoBadge />}
             <Badge tone={p.monitoring.status === "active" ? "ok" : "warn"} data-testid="monitoring-status">
-              <Dot tone={p.monitoring.status === "active" ? "ok" : "warn"} pulse={p.monitoring.running} /> {p.monitoring.running ? "SCANNING" : p.monitoring.status === "active" ? "MONITORING ACTIVE" : "PAUSED"}
+              <Dot tone={p.monitoring.status === "active" ? "ok" : "warn"} pulse={scanning} /> {scanning ? "SCANNING" : p.monitoring.status === "active" ? "MONITORING ACTIVE" : "PAUSED"}
             </Badge>
             <Button variant="outline" onClick={() => setAdding(true)} data-testid="add-information">
               <Plus /> Add information
             </Button>
-            <Button variant="primary" onClick={scan} disabled={p.monitoring.running} data-testid="run-scan">
-              <RefreshCw className={cn(p.monitoring.running && "animate-spin")} /> {p.monitoring.running ? "Scanning…" : "Run manual scan"}
+            <Button variant="primary" onClick={scan} disabled={scanning} data-testid="run-scan">
+              <RefreshCw className={cn(scanning && "animate-spin")} /> {scanning ? "Scanning…" : "Run manual scan"}
             </Button>
           </div>
         </div>
