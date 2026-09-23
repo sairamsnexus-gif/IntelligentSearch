@@ -120,8 +120,8 @@ export async function activeAdapters(opts: { forceDemo?: boolean } = {}): Promis
   const real = avail.filter((x) => x.ok).map((x) => x.a);
   const hasWeb = real.some((a) => WEB_PROVIDERS.has(a.name));
 
-  let demo = mode === "true";
-  let demoReason = demo ? (opts.forceDemo ? "Person was locked from demo data" : "DEMO_MODE=true") : "";
+  let demo = false;
+  let demoReason = "";
   if (mode === "auto" && !hasWeb) {
     demo = true;
     demoReason = "No real web-search provider is reachable (configure SEARXNG_URL or an API key)";

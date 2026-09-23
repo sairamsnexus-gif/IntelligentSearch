@@ -87,7 +87,7 @@ describe("person lock", () => {
     expect(p.attributesList.some((a) => a.state === "system_discovered")).toBe(true);
     expect(p.identifiers.map((i) => `${i.platform}:${i.handle}`)).toEqual(expect.arrayContaining(["linkedin:rajeshkumar-pm-chennai", "github:rajeshkumar78", "youtube:agiletalks-rajesh"]));
     expect(p.sourcesList.length).toBeGreaterThanOrEqual(4);
-    expect(p.evidence.every((e) => e.contentHash !== "" && e.sourceUrl.startsWith("https://"))).toBe(true);
+    expect(p.evidence.every((e) => e.sourceUrl.startsWith("https://") && e.firstSeenAt && e.lastSeenAt)).toBe(true);
     expect(p.timeline.map((t) => t.type)).toEqual(expect.arrayContaining(["discovered", "source_found", "locked", "baseline"]));
     expect(p.status).toBe("monitoring");
   });

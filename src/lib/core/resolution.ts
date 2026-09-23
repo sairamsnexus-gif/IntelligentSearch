@@ -15,7 +15,7 @@
  *     confirms and locks.
  */
 import { extractSignals } from "./extract";
-import { ATTRIBUTE_LABEL } from "./input";
+import { ATTRIBUTE_LABEL } from "./labels";
 import { canonicalOrg, sameCity, sameCountry, sameOrg } from "./lexicon";
 import { PLATFORM_LABEL } from "./profiles";
 import { compareNames, domainOf, norm, uniq } from "./text";

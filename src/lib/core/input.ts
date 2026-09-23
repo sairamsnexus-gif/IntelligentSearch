@@ -7,14 +7,8 @@ import type { AttributeKind, AttributeState, Platform, TargetAttribute, TargetId
 
 const s = (max = 200) => z.string().trim().max(max).optional().or(z.literal(""));
 
-export const PURPOSES = [
-  "due_diligence",
-  "recruitment_verification",
-  "reconnect",
-  "self_monitoring",
-  "research",
-  "other",
-] as const;
+export { PURPOSES } from "./labels";
+import { PURPOSES } from "./labels";
 
 export const personQuerySchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
@@ -130,19 +124,4 @@ export function mergeIntoProfile(
   return { name: base.name, attributes: attrs, identifiers: ids };
 }
 
-export const ATTRIBUTE_LABEL: Record<AttributeKind, string> = {
-  name: "Name",
-  city: "City",
-  state: "State",
-  country: "Country",
-  organization: "Company",
-  designation: "Designation",
-  previous_organization: "Previous company",
-  school: "School / College",
-  age: "Approx. age",
-  email: "Email",
-  phone: "Phone",
-  website: "Website",
-  event: "Event",
-  other: "Other",
-};
+export { ATTRIBUTE_LABEL } from "./labels";
