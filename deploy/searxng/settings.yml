@@ -1,0 +1,11 @@
+# Minimal SearXNG config for IntelligentSearch. JSON output must be enabled.
+use_default_settings: true
+server:
+  secret_key: "change-me-in-production"   # overridden by SEARXNG_SECRET in compose
+  limiter: false
+  image_proxy: false
+search:
+  safe_search: 1
+  formats:
+    - html
+    - json

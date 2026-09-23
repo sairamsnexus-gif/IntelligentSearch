@@ -1,0 +1,66 @@
+# Full local stack. Minimal dev needs none of this (`npm run dev` uses embedded Postgres + demo mode).
+#   docker compose up -d postgres searxng osint-python      # providers only; run the app with npm run dev
+#   docker compose --profile app up -d --build              # everything in containers
+#   docker compose --profile changedetection up -d          # optional changedetection.io
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: intelligentsearch
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-intelligentsearch}
+      POSTGRES_DB: intelligentsearch
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U intelligentsearch"]
+      interval: 5s
+      retries: 10
+
+  searxng:
+    image: searxng/searxng:latest
+    ports: ["127.0.0.1:8080:8080"]
+    environment:
+      SEARXNG_BASE_URL: http://localhost:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me}
+    volumes: ["./deploy/searxng/settings.yml:/etc/searxng/settings.yml:ro"]
+
+  osint-python:
+    build: ./services/osint-python
+    ports: ["127.0.0.1:8090:8090"]
+
+  changedetection:
+    profiles: ["changedetection"]
+    image: ghcr.io/dgtlmoon/changedetection.io:latest
+    ports: ["127.0.0.1:5000:5000"]
+    volumes: [cddata:/datastore]
+
+  app:
+    profiles: ["app"]
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://intelligentsearch:${POSTGRES_PASSWORD:-intelligentsearch}@postgres:5432/intelligentsearch
+      SEARXNG_URL: http://searxng:8080
+      MAIGRET_SERVICE_URL: http://osint-python:8090
+      RUN_WORKER_IN_PROCESS: "false"
+      APP_ENV: production
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  worker:
+    profiles: ["app"]
+    build: .
+    command: ["npm", "run", "worker"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://intelligentsearch:${POSTGRES_PASSWORD:-intelligentsearch}@postgres:5432/intelligentsearch
+      SEARXNG_URL: http://searxng:8080
+      MAIGRET_SERVICE_URL: http://osint-python:8090
+      APP_ENV: production
+    depends_on:
+      postgres: { condition: service_healthy }
+
+volumes:
+  pgdata: {}
+  cddata: {}
