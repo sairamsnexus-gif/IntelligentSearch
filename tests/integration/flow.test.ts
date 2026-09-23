@@ -113,6 +113,8 @@ describe("monitoring & change detection", () => {
     const newSrc = p.sourcesList.find((s) => s.url.includes("ai-in-project-delivery-summit"))!;
     expect(newSrc.status).toBe("NEW");
     expect(newSrc.verificationStatus).toBe("system_discovered");
+    // A same-name page linking a different LinkedIn handle (another person) must not be attributed.
+    expect(p.sourcesList.some((s) => s.url.includes("rajeshwrites.example.net"))).toBe(false);
     expect(p.newFindings).toBeGreaterThanOrEqual(1);
     expect(p.changedFindings).toBeGreaterThanOrEqual(1);
     expect(p.monitoring.runCount).toBe(1);

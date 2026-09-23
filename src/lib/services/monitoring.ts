@@ -189,6 +189,11 @@ async function attributeNewResult(r: SearchResult, target: TargetProfile): Promi
   if (hitsId(s.subjectProfile) || (s.nameHit && s.mentionedProfiles.some((m) => hitsId(m)))) return "strong";
   if (s.emails.some((e) => target.attributes.some((a) => a.kind === "email" && a.value === e))) return "strong";
   if (!s.nameHit) return null;
+  // A page that links a *different* handle on a platform where this person's handle is known is about someone else.
+  const otherHandle = [...(s.subjectProfile ? [s.subjectProfile] : []), ...s.mentionedProfiles].some((p) => ids.some((i) => i.platform === p.platform) && !hitsId(p));
+  if (otherHandle) return null;
+  const ages = target.attributes.filter((a) => a.kind === "age").map((a) => parseInt(a.value, 10));
+  if (ages.length && s.ages.length && !s.ages.some((x) => ages.some((y) => Math.abs(x - y) <= 5))) return null;
   const facets = { organization: [] as string[], city: [] as string[], designation: [] as string[], previous_organization: [] as string[], school: [] as string[] };
   for (const a of target.attributes) if (a.kind in facets) facets[a.kind as keyof typeof facets].push(a.value);
   const { agree, conflict } = compareToCluster(s, { facets });
