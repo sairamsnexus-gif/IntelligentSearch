@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { api } from "@/lib/api/handler";
 import { activeAdapters, computeCoverage } from "@/lib/adapters/registry";
 import { dbDriver, getDb, schema } from "@/lib/db/client";
-import { geminiConfigured } from "@/lib/ai/gemini";
+import { aiConfigured } from "@/lib/ai/assist";
 import { env } from "@/lib/config/env";
 
 export const GET = api(async ({ user }) => {
@@ -18,7 +18,7 @@ export const GET = api(async ({ user }) => {
     adapters: [...new Set([...active.search, ...active.username, ...active.monitor].map((a) => a.name))],
     worker: { lastHeartbeat: at ?? null, healthy: Boolean(at && Date.now() - Date.parse(at) < 90_000) },
     db: dbDriver(),
-    ai: geminiConfigured(),
+    ai: aiConfigured(),
     monitorIntervalHours: env().MONITOR_INTERVAL_HOURS,
     maxIterations: env().MAX_DISCOVERY_ITERATIONS,
   };

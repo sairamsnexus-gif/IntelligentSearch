@@ -4,7 +4,7 @@ import { isAllowed, parseRobots } from "@/lib/security/robots";
 import { redact } from "@/lib/security/logger";
 import { SlidingWindowLimiter, mapWithConcurrency } from "@/lib/security/rate-limit";
 import { hashPassword, signSession, verifyPassword, verifySession } from "@/lib/auth/session";
-import { groundInText } from "@/lib/ai/gemini";
+import { groundInText } from "@/lib/ai/assist";
 
 describe("SSRF protection", () => {
   it("classifies private and reserved addresses", () => {

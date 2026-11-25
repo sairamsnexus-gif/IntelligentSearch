@@ -61,7 +61,7 @@ export function Shell({ user, children }: { user: { email: string; role: string 
                 <Indicator label="DB" value={status.db === "pglite" ? "EMBEDDED" : "POSTGRES"} tone="ok" />
                 <Indicator label="WORKER" value={status.worker.healthy ? "ONLINE" : "WAITING"} tone={status.worker.healthy ? "ok" : "warn"} pulse={status.worker.healthy} />
                 <Indicator label="SOURCES" value={status.demo ? "DEMO" : `${status.adapters.length} ACTIVE`} tone={status.demo ? "warn" : "accent"} />
-                <Indicator label="AI" value={status.ai ? "GEMINI" : "RULES"} tone={status.ai ? "accent" : "muted"} />
+                <Indicator label="AI" value={status.ai ? "FREELLMAPI" : "RULES"} tone={status.ai ? "accent" : "muted"} />
               </div>
             )}
             <span className="mono hidden text-[11px] text-muted sm:inline">{user.email}</span>

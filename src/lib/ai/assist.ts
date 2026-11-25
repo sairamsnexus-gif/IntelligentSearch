@@ -1,18 +1,17 @@
 import "server-only";
 /**
- * Optional Gemini integration. Used ONLY to extract structured attributes from
- * free text / page text. Never used to decide identity — its output feeds the
- * same explainable matching as the rule-based extractor, and every extracted
- * value must literally appear in the source text to be kept.
+ * Optional AI assistance via the operator's FreeLLMAPI gateway (the only LLM
+ * path; no direct paid providers). Used ONLY to extract structured attributes
+ * from free text. Never used to decide identity, and every extracted value must
+ * literally appear in the source text to be kept.
  */
 import { z } from "zod";
-import { env } from "@/lib/config/env";
-import { providerJson } from "@/lib/adapters/http";
+import { chat, gatewayConfig, parseJsonReply } from "@/lib/nexus/freellmapi";
 import { log } from "@/lib/security/logger";
 import { norm } from "@/lib/core/text";
 
-export function geminiConfigured() {
-  return Boolean(env().GEMINI_API_KEY);
+export function aiConfigured() {
+  return gatewayConfig().ok;
 }
 
 const extractionSchema = z.object({
@@ -26,41 +25,28 @@ const extractionSchema = z.object({
   approximate_age: z.number().int().nullish(),
   usernames: z.array(z.object({ platform: z.string(), handle: z.string() })).nullish(),
 });
-export type GeminiExtraction = z.infer<typeof extractionSchema>;
+export type AiExtraction = z.infer<typeof extractionSchema>;
 
 const PROMPT = `Extract search attributes about ONE person from the user's note.
 Return JSON with keys: city, state, country, organization (current employer), previous_organizations (array), designation, school, approximate_age (integer), usernames (array of {platform, handle}).
 Use null when not stated. Do not guess. Do not infer sensitive traits (health, religion, ethnicity, politics).`;
 
-export async function extractWithGemini(text: string): Promise<GeminiExtraction | null> {
-  const e = env();
-  if (!e.GEMINI_API_KEY || !text.trim()) return null;
+export async function extractWithAi(text: string): Promise<AiExtraction | null> {
+  if (!aiConfigured() || !text.trim()) return null;
   try {
-    const data = await providerJson<{ candidates?: { content?: { parts?: { text?: string }[] } }[] }>(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(e.GEMINI_MODEL)}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": e.GEMINI_API_KEY },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: `${PROMPT}\n\nNOTE:\n${text.slice(0, 4000)}` }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0 },
-        }),
-      },
-      { adapter: "gemini", timeoutMs: 20_000, retries: 1 },
-    );
-    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!raw) return null;
-    const parsed = extractionSchema.safeParse(JSON.parse(raw));
+    const r = await chat([{ role: "system", content: PROMPT }, { role: "user", content: `NOTE:\n${text.slice(0, 4000)}` }], 600, { json: true });
+    if (!r.ok) return null;
+    const parsed = extractionSchema.safeParse(parseJsonReply(r.content));
     if (!parsed.success) return null;
     return groundInText(parsed.data, text);
   } catch (err) {
-    log.warn("gemini.extract_failed", { error: err instanceof Error ? err.message : "unknown" });
+    log.warn("ai.extract_failed", { error: err instanceof Error ? err.message : "unknown" });
     return null;
   }
 }
 
 /** Drop any value that does not literally occur in the source text (anti-hallucination). */
-export function groundInText(x: GeminiExtraction, text: string): GeminiExtraction {
+export function groundInText(x: AiExtraction, text: string): AiExtraction {
   const t = norm(text);
   const keep = (v?: string | null) => (v && t.includes(norm(v)) ? v : null);
   return {

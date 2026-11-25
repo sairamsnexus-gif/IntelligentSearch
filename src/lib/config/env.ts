@@ -13,8 +13,24 @@ const intIn = (def: number, min: number, max: number) =>
   z.preprocess(emptyToUndef, z.coerce.number().int().min(min).max(max).default(def));
 
 const schema = z.object({
-  GEMINI_API_KEY: optStr,
-  GEMINI_MODEL: z.preprocess(emptyToUndef, z.string().default("gemini-2.5-flash")),
+  // LLM gateway — FreeLLMAPI (operator-run, single-user). The only LLM path in NEXUS.
+  FREELLMAPI_BASE_URL: optUrl,
+  FREELLMAPI_API_KEY: optStr,
+  FREELLMAPI_MODEL: optStr,
+  FREELLMAPI_MODEL_ALLOWLIST: optStr,
+  NEXUS_LLM_DAILY_CALL_CAP: intIn(200, 0, 5000),
+  NEXUS_LLM_MAX_TOKENS: intIn(1500, 64, 8000),
+  // NEXUS engine services (all optional, operator-run)
+  GPTR_SERVICE_URL: optUrl,
+  SPIDERFOOT_URL: optUrl,
+  SPIDERFOOT_USER: optStr,
+  SPIDERFOOT_PASSWORD: optStr,
+  NEXUS_SYNTHETIC: z.preprocess(emptyToUndef, z.enum(["auto", "true", "false"]).default("auto")),
+  // Hosted (Netlify) mode: no database, env-based operator login, operator-only services unreachable.
+  NEXUS_HOSTED: z.preprocess(emptyToUndef, z.enum(["true", "false"]).optional()),
+  NETLIFY: optStr,
+  NEXUS_OPERATOR_EMAIL: optStr,
+  NEXUS_OPERATOR_PASSWORD_HASH: optStr,
   TAVILY_API_KEY: optStr,
   BRAVE_SEARCH_API_KEY: optStr,
   SERPER_API_KEY: optStr,

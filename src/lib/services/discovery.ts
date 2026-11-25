@@ -14,7 +14,7 @@ import { extractSignals } from "@/lib/core/extract";
 import { extractFromFreeText } from "@/lib/core/freetext";
 import { buildTargetProfile, canonicalAttributeValue, mergeIntoProfile, type PersonQuery } from "@/lib/core/input";
 import { profileFromInput } from "@/lib/core/profiles";
-import { extractWithGemini, geminiConfigured } from "@/lib/ai/gemini";
+import { extractWithAi, aiConfigured } from "@/lib/ai/assist";
 import { mapWithConcurrency } from "@/lib/security/rate-limit";
 import { log } from "@/lib/security/logger";
 import { enqueue, registerHandler } from "./jobs";
@@ -41,7 +41,7 @@ export async function createSession(q: PersonQuery, userId: string | null): Prom
   let hints: Platform[] = [];
   if (note) {
     const fx = extractFromFreeText(note);
-    const ai = geminiConfigured() ? await extractWithGemini(note) : null;
+    const ai = aiConfigured() ? await extractWithAi(note) : null;
     const aiAttrs: TargetAttribute[] = [];
     const aiIds: TargetIdentifier[] = [];
     if (ai) {

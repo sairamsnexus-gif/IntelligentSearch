@@ -161,7 +161,7 @@ function TargetPanel({ session, onReset }: { session: SessionView; onReset: () =
       )}
       {session.extracted && (session.extracted.attributes.length > 0 || session.extracted.identifiers.length > 0 || session.extracted.platformHints.length > 0) && (
         <div className="mt-4 rounded-[4px] border border-violet/30 bg-violet/[0.06] p-2">
-          <div className="label !text-violet">extracted from your note {session.extracted.usedAi ? "· gemini" : "· rules"}</div>
+          <div className="label !text-violet">extracted from your note {session.extracted.usedAi ? "· freellmapi" : "· rules"}</div>
           <div className="mt-1.5 flex flex-wrap gap-1">
             {session.extracted.attributes.map((a, i) => (
               <Badge key={i} tone="violet">
