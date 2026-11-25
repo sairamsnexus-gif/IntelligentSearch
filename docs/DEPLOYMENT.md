@@ -1,57 +1,60 @@
 # Deployment
 
-## Local development (default)
+NEXUS has two run modes.
 
-```bash
-cp .env.example .env
-npm install
-npm run dev
-```
-
-Embedded Postgres (PGlite) + in-process worker + demo mode — no services needed. Optional real providers:
-
-```bash
-docker compose up -d searxng osint-python     # SEARXNG_URL=http://localhost:8080, MAIGRET_SERVICE_URL=http://localhost:8090
-docker compose up -d postgres                 # DATABASE_URL=postgres://intelligentsearch:intelligentsearch@localhost:5432/intelligentsearch
-```
-
-> PGlite is single-process: with PGlite, keep `RUN_WORKER_IN_PROCESS=true`. The standalone worker requires Postgres.
-
-## Option A — everything in Docker (single host / VM)
-
-```bash
-cp .env.example .env            # set AUTH_SECRET, APP_ENV=production, provider keys
-docker compose --profile app up -d --build
-# app → http://127.0.0.1:3000 (put a TLS reverse proxy such as Caddy/nginx in front)
-```
-
-Services: `postgres`, `searxng`, `osint-python` (Maigret), `app` (Next.js, `RUN_WORKER_IN_PROCESS=false`), `worker` (`npm run worker`), optional `changedetection` profile. Migrations run automatically on startup.
-
-## Option B — Vercel + managed Postgres + worker container
-
-Vercel serverless functions are not a scheduler or a long-running worker, so split the roles:
-
-| Component | Where | Settings |
+| | **Operator mode (local)** | **Hosted mode (Netlify free tier)** |
 |---|---|---|
-| Web app (UI + API) | Vercel | `DATABASE_URL` (Supabase/Neon pooled URL), `AUTH_SECRET`, `APP_ENV=production`, `RUN_WORKER_IN_PROCESS=false`, provider keys |
-| Worker + scheduler | Any container host (Fly.io, Railway, Render, ECS, a VM) running this repo’s `Dockerfile` with `npm run worker` | same env as the app |
-| SearXNG / Maigret sidecar | Same private network as the worker (or a VM) | referenced via `SEARXNG_URL`, `MAIGRET_SERVICE_URL` |
-| Postgres | Supabase / Neon / RDS | the queue uses `FOR UPDATE SKIP LOCKED` — use a direct (session) connection for the worker |
+| Who | You, on your own machine or private server | You, from anywhere (single operator login) |
+| Engines | All five (Page Investigator, SearXNG, GPT Researcher, SpiderFoot, Maigret) + FreeLLMAPI | Page Investigator. SearXNG/FreeLLMAPI only if *publicly* reachable. GPT Researcher, SpiderFoot and Maigret show as **unavailable** |
+| Storage | Browser IndexedDB + JSON files (+ local DB for the legacy console) | Browser IndexedDB + JSON files. **No database** |
+| Login | Local account created at first run (`/setup`) | `NEXUS_OPERATOR_EMAIL` + `NEXUS_OPERATOR_PASSWORD_HASH` env vars |
+| Legacy console / monitor | Available | Disabled (redirects home; APIs return 404) |
+| Synthetic demo world | Available | Available |
 
-Notes:
-- API routes only **enqueue** work; the worker executes searches, baselines and scans, so request latency stays low.
-- The worker writes a heartbeat to `app_state`; the header shows **WORKER ONLINE** when it is < 90 s old.
-- Scale workers horizontally — job claiming is concurrency-safe.
+## Operator mode (recommended for real investigations)
 
-## Option C — single Node process
+```bash
+cp .env.example .env              # never commit .env
+npm install
+npm run dev                       # http://localhost:3000 → /setup creates your account
+```
 
-`npm run build && npm start` with `RUN_WORKER_IN_PROCESS=true` (the default) runs web + worker + scheduler in one process. Suitable for a small internal deployment on a VM.
+Add engines as you need them. Every port is bound to `127.0.0.1`:
 
-## Upgrades & migrations
+```bash
+docker compose up -d searxng osint-python               # SEARXNG_URL=http://localhost:8080  MAIGRET_SERVICE_URL=http://localhost:8090
+docker compose --profile engines up -d                  # GPTR_SERVICE_URL=http://localhost:8095  SPIDERFOOT_URL=http://localhost:5001
+export FREELLMAPI_ENCRYPTION_KEY=$(openssl rand -hex 32)
+docker compose --profile llm up -d freellmapi           # then follow docs/FREE_PROVIDER_SETUP.md
+```
 
-- Edit `src/lib/db/schema.ts` → `npm run db:generate` → commit the new file in `drizzle/`.
-- Migrations are applied automatically on first DB access by the app and the worker.
+SearXNG must allow JSON output (`deploy/searxng/settings.yml` already sets `formats: [html, json]`). In SpiderFoot's settings, set `sfp_spider` → *robotsonly* = True. Without it, NEXUS leaves the spider module out.
 
-## Backups
+Production on a private VM: `npm run build && npm start` (or `docker compose --profile app up -d --build`) behind an HTTPS reverse proxy, with `AUTH_SECRET` and `APP_ENV=production` set.
 
-Back up Postgres (`pg_dump`). With PGlite, back up `./.data/pglite` while the app is stopped.
+## Hosted mode on Netlify (free tier)
+
+> **Status:** configuration is included and hosted mode was tested locally (`NEXUS_HOSTED=true`: operator login, engines endpoint, synthetic execution, legacy routes disabled, no database touched). **An actual Netlify deployment has not been verified.** The build environment had no Netlify account or token, and pushing to the repository was blocked.
+
+1. Generate the operator password hash locally:
+   ```bash
+   npm run hash-password            # prints scrypt$…  (the password itself is never stored)
+   ```
+2. In Netlify → *Add new site → Import from Git*, select the repository. `netlify.toml` sets the build command, `NEXUS_HOSTED=true` and `RUN_WORKER_IN_PROCESS=false`. Netlify's Next.js runtime is detected automatically.
+3. Set these site environment variables (*Site configuration → Environment variables*), marked as secret:
+   - `AUTH_SECRET` (`openssl rand -hex 32`)
+   - `NEXUS_OPERATOR_EMAIL`
+   - `NEXUS_OPERATOR_PASSWORD_HASH`
+   - Optional: `SEARXNG_URL` (a SearXNG you run that is publicly reachable over HTTPS; protect it with your own access controls).
+   - Optional: `FREELLMAPI_BASE_URL` + `FREELLMAPI_API_KEY`. Only if your gateway is reachable over HTTPS **and** you accept that the hosted app (behind your operator login) uses your unified key server-side. The key is never sent to the browser. **Never** make the gateway's dashboard public, and never share the unified key.
+4. Deploy, open the site, and sign in.
+
+Why it fits the free tier: each function invocation runs one short unit task (one search, one page fetch ≤ 12 s, one job poll). The browser runs the rounds, so there are no long-running or background functions, no scheduled functions and no database.
+
+## Phase 2 (not implemented)
+
+Continuous monitoring of investigations, cloud sync, multi-user sharing and a cloud database (e.g. Supabase) are out of scope for Phase 1.
+
+## Legacy console deployment
+
+The previous person-search console (`/person-search`, `/monitor`, `/admin`) still runs in operator mode with embedded PGlite or Postgres. Its worker and deployment options are unchanged: run `npm run worker` as a separate process with Postgres, or keep the in-process worker with PGlite. See the earlier sections of [ARCHITECTURE.md](ARCHITECTURE.md).

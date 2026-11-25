@@ -1,205 +1,160 @@
-# IntelligentSearch
+# NEXUS
 
-**Public-information person discovery, identity resolution and monitoring — with a human in the loop.**
+**Multi-engine public-source intelligence. Evidence first, human-confirmed, zero-cost.**
 
-```
-DISCOVER → MATCH → SHOW EVIDENCE → ASK USER → CONFIRM → LOCK → MONITOR
-```
+You describe who or what you are looking for in plain language, for example:
 
-IntelligentSearch turns a few known facts about a person (name, city, company, job title, usernames…) into a prioritised set of search hypotheses, runs them across pluggable public sources, groups the results into **candidate persons**, and explains attribute-by-attribute — with source links — why each candidate does or does not match. When ambiguity remains it **asks you for another detail** instead of guessing. Only after you explicitly confirm a candidate is the identity **locked** and **monitored** for new and changed public information.
+> *Find Asma and Siva in Chennai. They may be running a garments business. Asma may also be associated with a Montessori school.*
 
-> The system never decides “this is definitely the person”. A human confirms every identity.
+NEXUS keeps the names exactly as written and adds spelling, phonetic and regional-script variants (Siva → Shiva, Sivaa, Seeva, **சிவா**; Asma → Asmah, **அஸ்மா**). It then runs five independent discovery engines. Each engine's leads are handed to the others over several rounds: SearXNG finds an *About* page, the Page Investigator reads it, SpiderFoot reports an affiliated domain, the Page Investigator opens that domain, and so on. Every fact is recorded with the exact source passage and a verification state. Results are presented as **possible matches with matches, conflicts and unknowns** for you to confirm or reject. NEXUS never decides identity on its own.
 
-![Console — ambiguous candidates](docs/screenshots/04-candidates-ambiguous.png)
+![NEXUS investigation](docs/screenshots/nexus-01-investigation.png)
 
 | | |
 |---|---|
-| ![Evidence](docs/screenshots/05-evidence.png) | ![Changes](docs/screenshots/10-changes-diff.png) |
+| ![Possible matches](docs/screenshots/nexus-02-matches.png) | ![Mobile](docs/screenshots/nexus-03-mobile.png) |
+
+*(Screenshots use the clearly labelled **synthetic demo world**: fictional `*.example` sites and people.)*
 
 ---
 
-## Contents
+## Engines
 
-1. [Prerequisites](#1-prerequisites)
-2. [Installation](#2-installation)
-3. [Configuration (.env)](#3-configuration)
-4. [Start development](#4-start-development)
-5. [Demo mode](#5-demo-mode)
-6. [Configure providers](#6-configure-providers)
-7. [How monitoring works](#7-how-monitoring-works)
-8. [Deploy](#8-deploy)
-9. [Testing](#9-testing) · [Project layout](#project-layout) · [Documentation](#documentation) · [Responsible use](#responsible-use)
+| Engine | Role | Integration | Status |
+|---|---|---|---|
+| **Page Investigator** (web-scout-ai method) | Reads pages and follows about/contact/team links. Extracts organisations, documented roles, public contacts, addresses and founding years with evidence passages | Native (web-scout-ai MIT, reference only) | **Implemented**, operator + hosted |
+| **SearXNG** | Metasearch for names, variants, scripts and discovered organisations | Separate service (AGPL-3.0, unmodified) | **Implemented**; needs an instance |
+| **GPT Researcher** | Independent research plan and narrative; its cited sources become leads | Python sidecar (Apache-2.0) | **Implemented, local-only** |
+| **SpiderFoot** | Domain OSINT (affiliated hosts, company names, linked emails and socials) | Separate service + REST adapter, free-module allowlist (MIT) | **Implemented, local-only** |
+| **Maigret** | Whether a username exists on public sites (existence only) | Python sidecar (MIT) | **Implemented, local-only** |
+| **FreeLLMAPI** (gateway, not a discovery engine) | Quote-verified extraction assistance, e.g. reading a Tamil sentence | Operator-run gateway (MIT) | **Implemented**; tested against a real FreeLLMAPI server |
 
----
+Audit, compatibility matrix and licence decisions: [docs/OPEN_SOURCE_COMPONENTS.md](docs/OPEN_SOURCE_COMPONENTS.md). How the engines cooperate: [docs/ENGINES.md](docs/ENGINES.md).
 
-## 1. Prerequisites
+## Absolute zero-cost policy
 
-| Need | Version | Notes |
-|---|---|---|
-| Node.js | ≥ 20.9 (22 LTS recommended) | Required |
-| npm | ≥ 10 | Required |
-| PostgreSQL | 14+ | **Optional** for development — an embedded Postgres (PGlite) is used automatically when `DATABASE_URL` is empty |
-| Docker + Compose | any recent | Optional — SearXNG, Postgres, Maigret sidecar, changedetection.io |
-| Python | 3.10+ | Optional — only to run the Maigret sidecar without Docker |
+**No paid API calls. No paid fallback. No automatic upgrade. No hidden billing.**
 
-## 2. Installation
+- FreeLLMAPI is the only LLM path, and commercial LLM endpoints are refused.
+- There are per-call token caps, per-investigation call budgets and a daily call cap.
+- A rate limit (429) or payment-required response (402) stops that provider. Other engines continue and findings are kept, and you can resume after the reset.
+- Brave, Serper and Tavily are excluded.
+
+See [docs/NO_PAID_FALLBACK.md](docs/NO_PAID_FALLBACK.md).
+
+## Quick start (no services, synthetic demo)
+
+Requires Node.js ≥ 20.9 (22 LTS recommended) and npm ≥ 10.
 
 ```bash
 git clone https://github.com/sairamsnexus-gif/IntelligentSearch.git
 cd IntelligentSearch
+cp .env.example .env
 npm install
+npm run dev                      # http://localhost:3000 → /setup creates your operator account
 ```
 
-## 3. Configuration
+1. On the NEXUS page, click **use example request**. *Synthetic demo world* is pre-ticked when no engine is configured.
+2. Press **Start**. Watch the rounds, the evidence graph and the Engines panel. Among the simulated events is a free-quota (429) stop on the LLM, after which the other engines carry on.
+3. Review the results:
+   - **A · Engine findings**: each engine's own results, kept separate.
+   - **B · Possible matches**: why it may match, conflicts, unknowns, and Confirm / Reject buttons.
+   - **C · Relationships**: links with their evidence quotes.
+   - **D · Source evidence**: copy groups, robots-blocked pages, contradictions.
+   - **E · Investigation trail**.
+   - **F · Unresolved leads**.
+   - **Public contacts**.
+   - **Coverage**.
+4. **Export JSON**. The workspace stays open. Reload the page and **Restore** the autosave.
 
-1. Copy `.env.example` to `.env`
-   ```bash
-   cp .env.example .env
-   ```
-2. Enter the API keys you have (all optional — see [API configuration](docs/API_CONFIGURATION.md)).
-3. Start the application (`npm run dev`).
-
-`.env` is git-ignored (`.env`, `.env.*`, except `.env.example`). Keys are read **server-side only** and never sent to the browser. With no keys at all the app runs in **demo mode**.
-
-Key variables:
-
-| Variable | Purpose | Default |
-|---|---|---|
-| `GEMINI_API_KEY` | AI extraction of attributes from free text (optional; rule-based extraction always runs) | – |
-| `TAVILY_API_KEY`, `BRAVE_SEARCH_API_KEY`, `SERPER_API_KEY` | Optional web-search providers | – |
-| `SEARXNG_URL` | Self-hosted metasearch (free) | `http://localhost:8080` |
-| `SEARCH_API_URL`, `SCRAPER_API_URL` | Optional DeepSearch services | – |
-| `REDDIT_CLIENT_ID/SECRET` | Reddit official API | – |
-| `GITHUB_TOKEN`, `YOUTUBE_API_KEY` | Higher GitHub rate limit / YouTube channel search | – |
-| `MAIGRET_SERVICE_URL` | Python username-discovery sidecar | – |
-| `CHANGEDETECTION_URL/API_KEY` | Delegate page watching to changedetection.io | – |
-| `DATABASE_URL` | PostgreSQL; empty = embedded PGlite in `./.data/pglite` | – |
-| `MONITOR_INTERVAL_HOURS` | Default scan interval | `24` |
-| `MAX_DISCOVERY_ITERATIONS` | Iterative discovery rounds | `3` |
-| `DEMO_MODE` | `auto` / `true` / `false` | `auto` |
-| `AUTH_SECRET` | Session signing key (`openssl rand -hex 32`) | generated in dev |
-| `RUN_WORKER_IN_PROCESS` | Run the job worker inside the web server | `true` |
-
-## 4. Start development
+## Real investigations (operator mode)
 
 ```bash
-npm run dev          # http://localhost:3000
+docker compose up -d searxng osint-python                # SearXNG + Maigret
+docker compose --profile engines up -d                   # GPT Researcher sidecar + SpiderFoot
+export FREELLMAPI_ENCRYPTION_KEY=$(openssl rand -hex 32)
+docker compose --profile llm up -d freellmapi            # add FREE providers: docs/FREE_PROVIDER_SETUP.md
 ```
 
-- First visit opens **/setup**: create the first operator account (becomes admin).
-- Migrations run automatically on first database access.
-- Background jobs (searches, baselines, monitoring scans, scheduler) run in-process in dev.
+Then set `SEARXNG_URL`, `MAIGRET_SERVICE_URL`, `GPTR_SERVICE_URL`, `SPIDERFOOT_URL`, `FREELLMAPI_BASE_URL` and `FREELLMAPI_API_KEY` in `.env` (reference: [docs/API_CONFIGURATION.md](docs/API_CONFIGURATION.md)), restart, and untick *Synthetic demo world*. Every service is bound to `127.0.0.1`.
 
-Useful scripts:
+## Deploy
 
-| Script | Does |
-|---|---|
-| `npm run dev` | Next.js dev server + in-process worker |
-| `npm run build && npm start` | Production build / serve |
-| `npm run worker` | Standalone worker (production; needs `DATABASE_URL`) |
-| `npm test` | Unit + integration tests (Vitest, embedded Postgres) |
-| `npm run lint` / `npm run typecheck` | ESLint / TypeScript strict |
-| `npm run e2e` | Browser walkthrough of all acceptance criteria (needs a running app) |
-| `npm run db:generate` | Generate a new Drizzle migration after editing the schema |
+- **Operator mode** (full engines): any private machine or VM. `npm run build && npm start` behind HTTPS.
+- **Hosted mode** (Netlify free tier): `netlify.toml` is included. There is no database, a single operator login comes from env (`npm run hash-password`), and only the Page Investigator plus the synthetic world are available. **Not yet deployed or verified.** See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-## 5. Demo mode
+## Investigation data
 
-Demo mode lets you exercise the full workflow before entering any key.
+Investigations are versioned JSON (`nexus.investigation` v1), validated with zod. Export/import checks integrity and migrates old versions; the browser autosaves to IndexedDB and offers recovery; nothing is auto-cleared after export; API keys and secrets are never stored in the file. There is no server database and no cloud sync in Phase 1. See [docs/INVESTIGATION_JSON.md](docs/INVESTIGATION_JSON.md).
 
-- `DEMO_MODE=auto` (default): demo is used when **no real web-search provider** (SearXNG, Brave, Serper, Tavily, DeepSearch) is reachable.
-- `DEMO_MODE=true` forces it; `DEMO_MODE=false` disables it.
-- Demo data is **entirely fictional**, labelled **DEMO DATA** everywhere, and never mixed with real results. “Open source” links render the fake page locally at `/demo-source` instead of linking to real sites.
-
-Walkthrough:
-
-1. Search **Rajesh Kumar** → *Add more details* → Chennai · India · TCS · Project Manager → **SEARCH PERSON**.
-2. Watch ~50 generated queries run over 3 iterations (the second iteration is driven by discovered attributes such as *Infosys* and *rajeshkumar78*).
-3. Seven fictional candidates appear; two match **5/5** → the system asks for another detail (it suggests *Previous company* because the two differ: Infosys vs HCLTech).
-4. Enter **Infosys** → *Search again* → one candidate leads **6/6**.
-5. **SELECT PERSON** → confirm → **LOCK PERSON & START MONITORING**.
-6. **RUN MANUAL SCAN** → 🔴 a new article, 🟡 the LinkedIn title changed (*Project Manager → Senior Project Manager*, with diff), ⚫ a blog post disappeared.
-7. **ADD INFORMATION** → Instagram `rajeshkumar78` → *Verify* (corroborated) → added to the **same** person and used by the next scan’s search plan.
-
-## 6. Configure providers
-
-Everything is an adapter behind one interface (`src/lib/adapters`). Free/local first:
-
-| Priority | Provider | Key needed | Enable by |
-|---|---|---|---|
-| 1 | **SearXNG** (local) | no | `docker compose up -d searxng` (JSON output pre-enabled in `deploy/searxng/settings.yml`) |
-| 2 | Google News RSS | no | always on |
-| 3 | GitHub public API | no (token optional) | always on |
-| 4 | FindME username rules (18 platforms) | no | always on |
-| 5 | Maigret sidecar (thousands of sites) | no | `docker compose up -d osint-python`, set `MAIGRET_SERVICE_URL=http://localhost:8090` |
-| 6 | Reddit official API | client id/secret | Reddit “script” app |
-| 7 | YouTube Data API | key | Google Cloud console |
-| 8 | Brave / Serper / Tavily | key | provider dashboards |
-| – | DeepSearch services | URL | run upstream `search.py` / `scraper.py` |
-| – | changedetection.io | URL + key | `docker compose --profile changedetection up -d` |
-
-Admins can enable/disable providers and run health checks under **Admin → Providers & health**. The console’s **SOURCE COVERAGE** panel only shows a source as ACTIVE when an adapter actually queries it; LinkedIn / Instagram / Facebook / X are always **LIMITED** (public search results only — no login, no scraping of logged-in pages).
-
-## 7. How monitoring works
-
-After a person is locked:
-
-1. **Baseline** — every known source is snapshotted (normalised text + SHA-256).
-2. **Scheduled scans** every `MONITOR_INTERVAL_HOURS` (per-person override in the UI), plus **manual scans**.
-3. Each scan (a) re-checks known URLs via the best legitimate method (GitHub/Reddit API, robots-aware direct fetch, changedetection.io, or search results for login-walled platforms) and (b) runs a small search plan generated from the **confirmed identity** — including identifiers you add later.
-4. Results are classified **NEW / CHANGED / UNCHANGED (EXISTING) / NO LONGER AVAILABLE**; changes store a word-level diff and attribute-level OLD → NEW, create alerts and timeline events, and link to evidence.
-5. Caching (6 h per query/provider), query de-duplication, content hashes, per-provider rate limits and exponential retries keep cost low.
-
-Details: [docs/MONITORING.md](docs/MONITORING.md).
-
-## 8. Deploy
-
-- **Web app** → Vercel (or any Node host) with a managed Postgres (Supabase/Neon/RDS). Set `RUN_WORKER_IN_PROCESS=false`.
-- **Worker** → a long-running container/VM (`npm run worker`) — Vercel functions are not a scheduler.
-- **Everything in containers** → `docker compose --profile app up -d --build`.
-
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-
-## 9. Testing
+## Testing
 
 ```bash
-npm test                 # 78 unit + integration tests (planner, resolution, change detection, scheduler, security, adapters, full pipeline)
+npm test                          # 121 tests (NEXUS pipeline, engines, gateway, units + legacy suite; 1 real-gateway test runs only with NEXUS_IT_* set)
+npm run lint && npm run typecheck
 npm run build && PGLITE_DATA_DIR=./.data/e2e npx next start -p 3100 &
-BASE_URL=http://localhost:3100 npm run e2e   # 32 acceptance checks in a real browser
+BASE_URL=http://localhost:3100 npm run e2e      # 52 browser checks (20 NEXUS + 32 legacy)
+cd services/gpt-researcher-sidecar && pytest    # sidecar: job API, robots shim, quota mapping
 ```
 
-The integration suite and the E2E walkthrough have been run against both embedded PGlite and PostgreSQL 16 (with the standalone worker).
+`tests/nexus/pipeline.test.ts` runs the full multi-engine pipeline on the example request. It checks:
+
+- exact names and Tamil variants;
+- SpiderFoot → Page Investigator handoff;
+- founders documented with evidence;
+- namesakes kept separate;
+- no inferred relationships;
+- contacts attributed to organisations;
+- the 2012 vs 2014 contradiction;
+- a press-release copy group counted once;
+- robots.txt blocks respected;
+- Maigret hits marked weak;
+- an isolated SpiderFoot failure;
+- an LLM quota stop with other engines continuing;
+- export/import round-trip;
+- quota pause and resume;
+- checkpoint resume.
+
+The gateway test also runs against a real FreeLLMAPI instance when `NEXUS_IT_FREELLMAPI_URL` and `NEXUS_IT_FREELLMAPI_KEY` are set.
+
+## Documentation
+
+| | |
+|---|---|
+| [Architecture](docs/ARCHITECTURE.md) | [Engines & orchestration](docs/ENGINES.md) |
+| [Open-source audit & licences](docs/OPEN_SOURCE_COMPONENTS.md) | [Configuration / env](docs/API_CONFIGURATION.md) |
+| [Free provider setup](docs/FREE_PROVIDER_SETUP.md) | [No-paid-fallback policy & quotas](docs/NO_PAID_FALLBACK.md) |
+| [Deployment (local & Netlify)](docs/DEPLOYMENT.md) | [Investigation JSON, export/import](docs/INVESTIGATION_JSON.md) |
+| [Limitations](docs/LIMITATIONS.md) | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| [Security](docs/SECURITY.md) | Legacy console: [search](docs/SEARCH_ENGINE.md) · [identity](docs/IDENTITY_RESOLUTION.md) · [monitoring](docs/MONITORING.md) |
 
 ## Project layout
 
 ```
 src/
-  app/                 Next.js App Router (pages + API routes)
-  components/          console, person (monitor mode), admin, ui (shadcn-style primitives)
-  lib/
-    core/              pure domain logic: planner, extraction, resolution, change detection, scheduling
-    adapters/          SearXNG, Brave, Serper, Tavily, DeepSearch, GitHub, Reddit, YouTube, News RSS,
-                       FindME, Maigret, direct web, changedetection.io, demo
-    services/          discovery sessions, person lock & enrichment, monitoring, job queue
-    db/                Drizzle schema + client (Postgres or PGlite)
-    security/          SSRF-safe fetch, robots.txt, rate limiting, redacting logger
-    auth/              scrypt passwords, HMAC session cookies, guards
-services/osint-python/ Maigret FastAPI sidecar
-drizzle/               SQL migrations
-tests/                 Vitest unit + integration
-scripts/               worker, e2e walkthrough
+  app/(app)/page.tsx           NEXUS workspace (home)
+  app/api/nexus/               execute (one unit task) · engines · parse
+  components/nexus/            workspace UI: request, graph, engines, clues, sections A–F, contacts, coverage
+  lib/nexus/                   schema · variants · clues · extract · ledger · orchestrator · analysis · io
+                               engines (real adapters) · freellmapi (gateway client) · synthetic world · policy
+  lib/…                        legacy console: core, adapters, services, db, security, auth
+services/gpt-researcher-sidecar/   FastAPI wrapper around GPT Researcher (robots shim, gateway-only LLM)
+services/osint-python/             Maigret sidecar
+tests/nexus/                       pipeline, engines, gateway, units
 ```
 
-## Documentation
+## Legacy person-search console (operator mode)
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Search engine & planner](docs/SEARCH_ENGINE.md)
-- [Identity resolution](docs/IDENTITY_RESOLUTION.md)
-- [Monitoring](docs/MONITORING.md)
-- [Open-source components](docs/OPEN_SOURCE_COMPONENTS.md)
-- [API configuration](docs/API_CONFIGURATION.md)
-- [Security](docs/SECURITY.md)
-- [Deployment](docs/DEPLOYMENT.md)
+The earlier single-person console is still available at **/person-search**, with **/monitor** and **/admin**. It covers discovery → candidate matching → explicit lock → monitoring with change detection. It needs a local database (embedded PGlite by default) and is disabled in hosted mode. Its demo walkthrough: search *Rajesh Kumar* (Chennai · India · TCS · Project Manager), add *Infosys* as the previous company, lock the leading candidate, then run a manual scan. See [docs/MONITORING.md](docs/MONITORING.md).
 
 ## Responsible use
 
-IntelligentSearch is for lawful purposes using **publicly available information only**. It does not bypass authentication or CAPTCHAs, access private accounts, posts or messages, ask for social-media passwords, perform phone or device tracking, or look up carrier/subscriber data. Every search records a stated purpose and every lock/scan/change is audit-logged. Respect local privacy law (e.g. GDPR, India’s DPDP Act) and the terms of every source you enable.
+NEXUS works with **publicly available information only**. It:
+
+- respects robots.txt;
+- never bypasses authentication, CAPTCHAs, bot challenges or access controls;
+- never accesses private accounts, groups or messages;
+- never harvests private personal contact details (contacts are attached only to organisations);
+- never infers family or personal relationships.
+
+Possible matches are not conclusions. Use NEXUS lawfully, respect privacy law (e.g. GDPR, India's DPDP Act) and the terms of every source, and store exported investigation files carefully.

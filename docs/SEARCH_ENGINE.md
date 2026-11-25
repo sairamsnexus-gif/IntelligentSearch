@@ -51,4 +51,4 @@ Every adapter returns the canonical `SearchResult` (`src/lib/core/types.ts`): `i
 
 ## Free-text extraction
 
-`core/freetext.ts` parses notes such as *“He worked at Infosys before TCS, probably around 40, lives in Chennai and may have a YouTube channel”* into `previous_organization=Infosys, organization=TCS, age=40, city=Chennai, hint=youtube`. With `GEMINI_API_KEY`, Gemini adds structured extraction; every AI value must literally occur in the note (`groundInText`) or it is discarded.
+`core/freetext.ts` parses notes such as *“He worked at Infosys before TCS, probably around 40, lives in Chennai and may have a YouTube channel”* into `previous_organization=Infosys, organization=TCS, age=40, city=Chennai, hint=youtube`. With the FreeLLMAPI gateway configured, the LLM adds structured extraction; every AI value must literally occur in the note (`groundInText`) or it is discarded.

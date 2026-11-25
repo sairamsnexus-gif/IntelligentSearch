@@ -21,6 +21,21 @@
 | Security headers | ✅ | CSP (no third-party origins), `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` |
 | Audit trail | ✅ | `audit_log`: logins, failed logins, searches (purpose), locks, verifications, scans, monitoring changes, provider toggles |
 
+## NEXUS-specific controls
+
+| Control | Implementation |
+|---|---|
+| No credentials in the browser | The FreeLLMAPI unified key and all service URLs are server env only. The browser calls `/api/nexus/*`, which needs a session |
+| No credentials in investigation files | They are not part of the schema. Export also strips credential-named fields (`io.ts`) |
+| FreeLLMAPI kept private | Compose binds it to `127.0.0.1`. NEXUS never proxies its dashboard. One operator; the key is never given to anonymous users |
+| Paid endpoints refused | `gatewayConfig()` and the GPT Researcher sidecar refuse commercial LLM hosts; SpiderFoot runs a key-less module allowlist |
+| Respecting access controls | robots.txt checked before every page fetch (NEXUS and GPT Researcher shim; 5xx on robots.txt → disallow). Sign-in-walled platforms never fetched; 401/403 recorded as `login_wall`, never retried with tricks. No stealth browser, no CAPTCHA or challenge solving |
+| SSRF | Page fetches use `safeFetch` (DNS-pinned public IPs only, redirects re-validated, size/time/type limits) |
+| No private contact harvesting | Contact points are attached only to organisations, from pages those organisations (or directories about them) publish |
+| No relationship inference | Family or personal relationships are never derived. User-stated links are `unverified_hypothesis` |
+| Hosted mode | No database; single operator from env (scrypt hash); `/setup` disabled; legacy DB routes return 404 |
+| Personal data | Investigation data stays in the browser and in files the user exports. `nexus-*.json` is git-ignored |
+
 ## Scope limits (by design)
 
 Not implemented and not to be added: authentication/CAPTCHA bypass, credential collection, social-media passwords, private posts/messages/accounts, breach/credential data, financial or medical records, device tracking, live phone location, carrier/subscriber lookups. Login-walled platforms are covered only through public search-engine results (LIMITED). The direct fetcher identifies itself and honours robots.txt.

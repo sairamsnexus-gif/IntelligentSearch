@@ -1,30 +1,35 @@
-# Open-source components
+# Open-source components: audit, compatibility and integration decisions
 
-Evaluated September 2026 by cloning and reading each repository. Nothing was copied blindly; integration is via adapters, and where a project was unsuitable it is documented and not forced in.
+NEXUS combines five discovery engines with one LLM gateway. Each upstream repository was cloned and inspected before integration (licence, runtime, network behaviour, paid dependencies, compliance with the NEXUS rules). This file records what was found and what was decided.
 
-| Repository | Purpose | Integration method | License | Maintenance (last commit seen) | Dependency risk | Used? |
-|---|---|---|---|---|---|---|
-| [soxoj/maigret](https://github.com/soxoj/maigret) | Username search across ~5,900 site definitions with profile parsing (socid-extractor) | **Python sidecar** `services/osint-python` (FastAPI) calls `maigret.search()` as a library; TS `MaigretAdapter` calls it over HTTP (`MAIGRET_SERVICE_URL`). NSFW/dating tags excluded, top-N ranked sites, bounded timeouts. | MIT | Active (2026-09-21, v0.6.6) | Medium: large dependency tree (aiohttp, curl_cffi…) isolated in its own container | **Yes** (optional) |
-| [0xSaikat/findme](https://github.com/0xSaikat/findme) | Username existence checks over 400+ sites (Sherlock-style `data.json`) | Curated 18-site subset of its `data.json` vendored at `src/lib/adapters/data/findme-sites.json` (with its MIT licence file); rules re-implemented in TS (`FindmeAdapter`) through the SSRF-safe fetcher. Third-party proxy probes (picuki, nitter) removed. | MIT | Active (2026-08-28) | Low: data file only, no runtime dependency | **Yes** (default on) |
-| [dgtlmoon/changedetection.io](https://github.com/dgtlmoon/changedetection.io) | Mature web-page change monitoring | REST API (`/api/v1/watch`, `/history`, `x-api-key`) via `ChangeDetectionAdapter`; runs as optional compose service. Our own hash/diff pipeline is used when it is not configured. | Apache-2.0 | Very active (2026-09-21) | Low: separate service, HTTP contract | **Yes** (optional) |
-| [Tasmay-Tibrewal/deepsearch](https://github.com/Tasmay-Tibrewal/deepsearch) | Streamlit research agent; `search.py` (SearXNG via pyppeteer) and `scraper.py` (aiohttp/BS4) HTTP services | HTTP only: `DeepSearchAdapter` posts to `SEARCH_API_URL` (`{query,max_pages}` → `[{title,url,description}]`) and optionally enriches via `SCRAPER_API_URL`. | **No licence file** → no code reused | Low activity (2025-05-29) | High: headless-browser stealth scraping of public SearXNG instances; users should run it only where that complies with the instance’s terms | **Yes** (optional, HTTP contract only) |
-| [searxng/searxng](https://github.com/searxng/searxng) | Self-hosted metasearch with JSON API | `SearxngAdapter` (`/search?format=json`); compose service + `deploy/searxng/settings.yml` enabling JSON | AGPL-3.0 (separate service, unmodified) | Very active | Low: separate container | **Yes** (primary free provider) |
-| [smicallef/spiderfoot](https://github.com/smicallef/spiderfoot) | Broad OSINT automation (200+ modules: DNS, breach, dark-web, infrastructure) | **Not integrated.** Its scope is mostly infrastructure/breach reconnaissance rather than person identity; several modules touch breach/credential data that this product must not surface; heavy runtime. | MIT | Stale (last commit 2023-11-05) | High | **No** |
-| GitHub topic: [person-search](https://github.com/topics/person-search) / [people-finder](https://github.com/topics/people-finder) | Mostly Sherlock/Maigret forks, scrapers of commercial people-search sites, and data-broker lookups | Reviewed; commercial people-search scrapers violate site ToS and aggregate non-public data. Username-discovery functionality is covered by Maigret + FindME. | various | – | – | **No** |
-| GitHub topic: [phone-number-information](https://github.com/topics/phone-number-information) (e.g. PhoneInfoga) | Phone OSINT: carrier/line lookups, dorks, reputation | **Not integrated** by design: carrier/subscriber lookups and location features are out of scope. Phone numbers are handled only as an identity *signal* with offline normalisation via libphonenumber-js. | GPL-3.0 (PhoneInfoga) | – | – | **No** |
+Decision vocabulary: **direct** (library code imported), **adapter** (NEXUS calls the tool's own API), **separate service** (runs unmodified as its own process/container), **reference only** (design studied and re-implemented natively; no code copied), **excluded**.
 
-## JavaScript / TypeScript libraries
+## Compatibility matrix
 
-| Library | Use | License |
-|---|---|---|
-| next, react | Web framework | MIT |
-| tailwindcss, class-variance-authority, clsx, tailwind-merge | Styling / shadcn-style primitives | MIT |
-| lucide-react | Icons | ISC |
-| drizzle-orm, drizzle-kit, pg | ORM, migrations, Postgres driver | Apache-2.0 / MIT |
-| @electric-sql/pglite | Embedded Postgres (dev/test) | Apache-2.0 / PostgreSQL |
-| zod | Input validation | MIT |
-| libphonenumber-js | Phone normalisation (offline metadata) | MIT |
-| diff | Text diffs | BSD-3-Clause |
-| fast-xml-parser | RSS parsing | MIT |
-| geist | Fonts | OFL |
-| vitest, playwright, tsx | Tests / e2e / worker runner | MIT / Apache-2.0 |
+| Component | Upstream | Licence (verified in repo) | Runtime | Paid dependency by default? | Compliance findings | Decision | Status in NEXUS |
+|---|---|---|---|---|---|---|---|
+| Page investigation | [web-scout-ai/web-scout-ai](https://github.com/web-scout-ai/web-scout-ai) | MIT | Python 3.11+, OpenAI Agents SDK, LiteLLM, Scrapling | **Yes** — default models on Amazon Bedrock and Gemini, open-web search via Serper (all metered) | Escalates to a "stealth Chromium browser" and "Cloudflare challenge handling" (README §fetching). That circumvents technical restrictions, which NEXUS must not do | **Reference only** | Implemented natively as the *Page Investigator* (`src/lib/nexus/extract.ts`, `engines.ts`): page-level reading, link prioritisation (about/contact/team first), evidence passages per claim, and explicit reporting of pages that could not be read, which mirrors web-scout's `bot_detected` taxonomy. There is no stealth browser, no challenge solving and no paid backend. |
+| Deep research | [assafelovic/gpt-researcher](https://github.com/assafelovic/gpt-researcher) | Apache-2.0 | Python 3.11+, FastAPI, LangChain | Defaults to Tavily (commercial) and OpenAI | No robots.txt check in its scrapers. Configurable retrievers include `searx`, and the LLM base URL is configurable | **Separate service** (sidecar wrapping the unmodified library) | `services/gpt-researcher-sidecar`: `RETRIEVER=searx`; the LLM is set to the FreeLLMAPI gateway via `OPENAI_BASE_URL`. A robots.txt and sign-in-wall shim runs before every scrape. A 429/402 ends the job as `quota`. Its report is shown as **AI-generated notes (leads, not evidence)**; every cited URL is re-read by the Page Investigator before anything enters the evidence ledger. **Local-only.** |
+| OSINT automation | [smicallef/spiderfoot](https://github.com/smicallef/spiderfoot) | MIT | Python 3, CherryPy web UI with a JSON API | Many modules need API keys, some for paid services | `sfp_spider` honours robots.txt only when its `robotsonly` option is on. The web UI has optional digest auth | **Separate service + adapter** | REST adapter (`engines.ts`) using `/startscan`, `/scanstatus` and `/scaneventresults`. Only an **allowlist of key-less modules** runs (`SPIDERFOOT_MODULES`). `sfp_spider` is dropped unless `robotsonly` is on. Bound to 127.0.0.1. **Local-only.** |
+| Metasearch | [searxng/searxng](https://github.com/searxng/searxng) | **AGPL-3.0** | Python service | No | The JSON output format must be enabled in `settings.yml` | **Separate service, unmodified** | Called only over HTTP (`/search?format=json`). It is not linked into or bundled with NEXUS, and no modified copy is distributed, so the AGPL obligations stay with the SearXNG instance itself. If you modify SearXNG and expose it to users over a network, you must publish your modifications under AGPL-3.0. |
+| Username discovery | [soxoj/maigret](https://github.com/soxoj/maigret) | MIT | Python | No | Results show that an account exists, not who owns it | **Separate service** (existing `services/osint-python`) | Each profile hit is recorded as a **weak indication** ("account exists; ownership not established"). **Local-only.** |
+| LLM gateway | [joshcohen-ai/free-ai-tokens](https://github.com/joshcohen-ai/free-ai-tokens) (FreeLLMAPI) | MIT | Node 20+, Express, SQLite | Not by default. It **does** have an optional paid "Premium" licence for catalog sync, and it will route to any provider key you add | Single-user by design: the dashboard, unified key and upstream keys must stay private | **Adapter** (operator-run gateway, OpenAI-compatible `/v1`) | `src/lib/nexus/freellmapi.ts`. It is the **only** LLM path and assists extraction only; it is **not** counted as a discovery engine. The key lives in server env only. Known commercial endpoints are refused as the gateway URL. There is a model allowlist, per-call token cap, per-investigation call budget and daily call cap. A 429/402 stops LLM use until reset, with **no fallback**. Do not enable Premium; add only free-tier provider keys. |
+
+### Removed or excluded in this phase
+
+| Item | Reason |
+|---|---|
+| Direct Gemini client (previous `src/lib/ai/gemini.ts`) | Removed. All LLM use goes through FreeLLMAPI (single gateway; no competing gateway). |
+| Brave Search API adapter | Excluded: its free plan requires a payment card on file (zero-cost policy). |
+| Serper and Tavily adapters | Excluded: commercial search APIs with paid plans (zero-cost policy). Their classes stay in `web-search.ts` for reference, but they are not registered. |
+| web-scout-ai stealth/Cloudflare fetching | Excluded: it circumvents technical access restrictions. |
+
+## Licence compliance summary
+
+- NEXUS's own code does not import code from any of these projects. The GPT Researcher sidecar imports the `gpt-researcher` package (Apache-2.0) from PyPI and keeps its notices.
+- SearXNG (AGPL-3.0), SpiderFoot (MIT), Maigret (MIT) and FreeLLMAPI (MIT) run as separate, unmodified services that NEXUS reaches over HTTP.
+- web-scout-ai (MIT) was used as a design reference only.
+
+## How the engines work together
+
+See [ENGINES.md](ENGINES.md) for the orchestrator, cross-engine handoff, stop conditions and failure isolation.
