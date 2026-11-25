@@ -1,10 +1,5 @@
-import { Suspense } from "react";
-import { Console } from "@/components/console/console";
+import { NexusWorkspace } from "@/components/nexus/workspace";
 
-export default function ConsolePage() {
-  return (
-    <Suspense>
-      <Console />
-    </Suspense>
-  );
+export default function NexusPage() {
+  return <NexusWorkspace />;
 }

@@ -42,7 +42,7 @@ export function AuthForm({ mode }: { mode: "login" | "setup" }) {
             <span className="h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_12px_var(--accent)]" />
           </span>
           <div>
-            <div className="mono text-[13px] font-semibold tracking-[0.22em] glow-text">INTELLIGENT SEARCH</div>
+            <div className="mono text-[13px] font-semibold tracking-[0.22em] glow-text">NEXUS</div>
             <div className="label !text-[9.5px]">{mode === "login" ? "operator sign-in" : "first-run setup · create admin"}</div>
           </div>
         </div>

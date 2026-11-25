@@ -5,7 +5,7 @@ import "server-only";
  */
 import { eq } from "drizzle-orm";
 import { DemoAdapter } from "./demo/adapter";
-import { BraveAdapter, DeepSearchAdapter, SearxngAdapter, SerperAdapter, TavilyAdapter } from "./web-search";
+import { DeepSearchAdapter, SearxngAdapter } from "./web-search";
 import { GitHubAdapter, NewsRssAdapter, RedditAdapter, YouTubeAdapter } from "./platforms";
 import { FindmeAdapter, MaigretAdapter } from "./username";
 import { ChangeDetectionAdapter, WebFetchAdapter } from "./monitors";
@@ -19,9 +19,8 @@ const g = globalThis as unknown as { __isAdapters?: SourceAdapter[] };
 export function allAdapters(): SourceAdapter[] {
   return (g.__isAdapters ??= [
     new SearxngAdapter(),
-    new BraveAdapter(),
-    new SerperAdapter(),
-    new TavilyAdapter(),
+    // Brave / Serper / Tavily adapters remain in web-search.ts for reference but are
+    // NOT registered: excluded under the zero-cost policy (see lib/nexus/policy.ts).
     new DeepSearchAdapter(),
     new NewsRssAdapter(),
     new GitHubAdapter(),

@@ -49,7 +49,7 @@ export function candidateMatches(inv: Investigation): CandidateMatch[] {
     const people = inv.entities.filter((e) => e.type === "person" && !e.key.startsWith("clue:") && matchName(clue, e.name));
     for (const p of people) {
       const rels = inv.relationships.filter((r) => r.subjectId === p.id || r.objectId === p.id);
-      const orgs = rels.map((r) => ent.get(r.subjectId === p.id ? r.objectId : r.subjectId)).filter((o): o is Entity => Boolean(o && ORG_TYPES.has(o.type)));
+      const orgs = Array.from(new Set(rels.map((r) => ent.get(r.subjectId === p.id ? r.objectId : r.subjectId)).filter((o): o is Entity => Boolean(o && ORG_TYPES.has(o.type)))));
       const v = matchName(clue, p.name)!;
       const matches: CandidateMatch["matches"] = [{ what: "Name", detail: v.isOriginal ? `exact "${clue.original}" in "${p.name}"` : `variant "${v.text}" (${v.method}) in "${p.name}"`, relationshipIds: [] }];
       const conflicts: CandidateMatch["conflicts"] = [];
@@ -82,7 +82,10 @@ export function candidateMatches(inv: Investigation): CandidateMatch[] {
     const city = orgCity(o);
     const matches: CandidateMatch["matches"] = hm.map((h) => ({ what: "Clue", detail: `${o.name} matches “${h}”`, relationshipIds: [] }));
     const conflicts: CandidateMatch["conflicts"] = [];
-    if (city && place.length) (place.includes(city.toLowerCase()) ? matches.push({ what: "Location", detail: `In ${city}`, relationshipIds: [] }) : conflicts.push({ what: "Location", detail: `In ${city}, clue says ${inv.clues.places.join(", ")}` }));
+    if (city && place.length) {
+      if (place.includes(city.toLowerCase())) matches.push({ what: "Location", detail: `In ${city}`, relationshipIds: [] });
+      else conflicts.push({ what: "Location", detail: `In ${city}, clue says ${inv.clues.places.join(", ")}` });
+    }
     const linkedClues = inv.clues.names.filter((c) => rels.some((r) => matchName(c, ent.get(r.subjectId)?.name ?? "")));
     for (const c of linkedClues) matches.push({ what: "Person", detail: `“${c.original}” publicly linked`, relationshipIds: rels.filter((r) => matchName(c, ent.get(r.subjectId)?.name ?? "")).map((r) => r.id) });
     if (!linkedClues.length) conflicts.push({ what: "Person", detail: "None of the named people are linked by evidence yet" });

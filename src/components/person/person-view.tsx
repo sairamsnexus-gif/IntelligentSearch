@@ -481,7 +481,7 @@ function SettingsTab({ p, isAdmin, setMonitoring }: { p: PersonDetailView; isAdm
         <div className="label mb-1">Data handling</div>
         Only public sources are monitored. Login-walled platforms (LinkedIn, Instagram, Facebook, X) are observed through public search results only. No private posts, messages or accounts are accessed.
       </div>
-      {p.sessionId && <Link href={`/?s=${p.sessionId}`} className="text-[12px] text-accent hover:underline">Open the original discovery session →</Link>}
+      {p.sessionId && <Link href={`/person-search?s=${p.sessionId}`} className="text-[12px] text-accent hover:underline">Open the original discovery session →</Link>}
     </div>
   );
 }

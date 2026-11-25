@@ -46,7 +46,7 @@ export function Console() {
     try {
       const r = await apiFetch<{ id: string }>("/api/searches", { method: "POST", body: JSON.stringify(payload) });
       setFocused(null);
-      router.push(`/?s=${r.id}`);
+      router.push(`/person-search?s=${r.id}`);
     } finally {
       setStarting(false);
     }
@@ -55,7 +55,7 @@ export function Console() {
   const reset = () => {
     setData(null);
     setFocused(null);
-    router.push("/");
+    router.push("/person-search");
   };
 
   return (
@@ -103,7 +103,7 @@ export function Console() {
               <ul className="space-y-1">
                 {recent.sessions.map((s) => (
                   <li key={s.id}>
-                    <button onClick={() => router.push(`/?s=${s.id}`)} className="flex w-full items-center justify-between rounded-[3px] px-2 py-1.5 text-left text-[12px] hover:bg-panel-3">
+                    <button onClick={() => router.push(`/person-search?s=${s.id}`)} className="flex w-full items-center justify-between rounded-[3px] px-2 py-1.5 text-left text-[12px] hover:bg-panel-3">
                       <span className="truncate text-text">{s.name}</span>
                       <span className="mono text-[10px] text-muted">
                         {s.personId ? "LOCKED" : s.uiState.replace(/_/g, " ").toUpperCase()} · {timeAgo(s.createdAt)}

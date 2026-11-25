@@ -23,8 +23,6 @@ const schema = z.object({
   // NEXUS engine services (all optional, operator-run)
   GPTR_SERVICE_URL: optUrl,
   SPIDERFOOT_URL: optUrl,
-  SPIDERFOOT_USER: optStr,
-  SPIDERFOOT_PASSWORD: optStr,
   NEXUS_SYNTHETIC: z.preprocess(emptyToUndef, z.enum(["auto", "true", "false"]).default("auto")),
   // Hosted (Netlify) mode: no database, env-based operator login, operator-only services unreachable.
   NEXUS_HOSTED: z.preprocess(emptyToUndef, z.enum(["true", "false"]).optional()),

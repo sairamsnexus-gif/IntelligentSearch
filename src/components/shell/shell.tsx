@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, Crosshair, LogOut, Radar, ShieldCheck } from "lucide-react";
+import { Activity, Crosshair, LogOut, Network, Radar, ShieldCheck } from "lucide-react";
 import { Dot } from "@/components/ui/badge";
 import { useApi } from "@/lib/hooks";
 import { cn } from "@/lib/utils";
@@ -19,14 +19,17 @@ export interface SystemStatus {
 }
 
 const NAV = [
-  { href: "/", label: "Console", icon: Crosshair },
-  { href: "/monitor", label: "Monitor", icon: Radar },
-  { href: "/admin", label: "Admin", icon: ShieldCheck, admin: true },
+  { href: "/", label: "Investigate", icon: Network },
+  { href: "/person-search", label: "Person search", icon: Crosshair, legacy: true },
+  { href: "/monitor", label: "Monitor", icon: Radar, legacy: true },
+  { href: "/admin", label: "Admin", icon: ShieldCheck, admin: true, legacy: true },
 ];
 
-export function Shell({ user, children }: { user: { email: string; role: string }; children: React.ReactNode }) {
+export function Shell({ user, hosted, children }: { user: { email: string; role: string }; hosted: boolean; children: React.ReactNode }) {
   const path = usePathname();
-  const { data: status } = useApi<SystemStatus>("/api/system/status", 15_000);
+  // Hosted mode has no database: the legacy status endpoint is not called.
+  const { data: status } = useApi<SystemStatus>(hosted ? null : "/api/system/status", 15_000);
+  const legacyPage = path !== "/";
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     // Full reload on sign-out intentionally clears all client state.
@@ -41,22 +44,22 @@ export function Shell({ user, children }: { user: { email: string; role: string 
             <span className="relative flex h-6 w-6 items-center justify-center rounded-[3px] border border-accent/60">
               <span className="h-2 w-2 rounded-full bg-accent shadow-[0_0_12px_var(--accent)]" />
             </span>
-            <span className="mono text-[13px] font-semibold tracking-[0.22em] text-text glow-text">INTELLIGENT SEARCH</span>
-            <span className="label hidden !text-[9.5px] lg:inline">{"// person intelligence console"}</span>
+            <span className="mono text-[13px] font-semibold tracking-[0.3em] text-text glow-text">NEXUS</span>
+            <span className="label hidden !text-[9.5px] lg:inline">{"// multi-engine public-source intelligence"}</span>
           </Link>
-          <nav className="ml-2 flex items-center gap-0.5">
-            {NAV.filter((n) => !n.admin || user.role === "admin").map((n) => {
+          <nav className="ml-1 flex min-w-0 items-center gap-0.5 overflow-x-auto" aria-label="Main">
+            {NAV.filter((n) => (!n.admin || user.role === "admin") && (!hosted || !n.legacy)).map((n) => {
               const active = n.href === "/" ? path === "/" : path.startsWith(n.href) || (n.href === "/monitor" && path.startsWith("/persons"));
               return (
-                <Link key={n.href} href={n.href} className={cn("mono flex h-8 items-center gap-1.5 rounded-[4px] px-2.5 text-[11px] uppercase tracking-[0.14em]", active ? "bg-accent/10 text-accent" : "text-muted hover:text-text")}>
+                <Link key={n.href} href={n.href} title={n.label} className={cn("mono flex h-8 items-center gap-1.5 rounded-[4px] px-2.5 text-[11px] uppercase tracking-[0.14em]", active ? "bg-accent/10 text-accent" : "text-muted hover:text-text")}>
                   <n.icon className="size-3.5" />
-                  {n.label}
+                  <span className="hidden md:inline">{n.label}</span>
                 </Link>
               );
             })}
           </nav>
           <div className="ml-auto flex items-center gap-4">
-            {status && (
+            {status && legacyPage && (
               <div className="hidden items-center gap-3 md:flex">
                 <Indicator label="DB" value={status.db === "pglite" ? "EMBEDDED" : "POSTGRES"} tone="ok" />
                 <Indicator label="WORKER" value={status.worker.healthy ? "ONLINE" : "WAITING"} tone={status.worker.healthy ? "ok" : "warn"} pulse={status.worker.healthy} />
@@ -70,7 +73,7 @@ export function Shell({ user, children }: { user: { email: string; role: string 
             </button>
           </div>
         </div>
-        {status?.demo && (
+        {status?.demo && legacyPage && (
           <div className="flex items-center gap-2 border-t border-warn/30 bg-warn/[0.07] px-4 py-1.5 text-[11.5px] text-warn">
             <Activity className="size-3.5" />
             <span className="mono font-semibold tracking-[0.14em]">DEMO DATA</span>
@@ -80,7 +83,7 @@ export function Shell({ user, children }: { user: { email: string; role: string 
       </header>
       <main className="flex-1">{children}</main>
       <footer className="border-t border-line px-4 py-2 text-[11px] text-muted">
-        Public-source information only · no private accounts, no authentication bypass, no location tracking · identity is never assumed — every person is confirmed by a human before monitoring.
+        Public-source information only · robots.txt respected · no private accounts, no authentication bypass, no private contact harvesting · relationships are never inferred · free services only — no paid APIs, no paid fallback.
       </footer>
     </div>
   );

@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "IntelligentSearch · Person Intelligence Console",
+  title: "NEXUS · Multi-engine public-source intelligence",
   description: "Public-information person discovery, identity resolution and monitoring with human confirmation.",
   robots: { index: false, follow: false },
 };
