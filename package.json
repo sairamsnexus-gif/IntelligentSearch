@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "worker": "tsx --env-file-if-exists=.env --conditions=react-server --tsconfig tsconfig.json scripts/worker.ts",
-    "e2e": "node scripts/e2e.mjs"
+    "e2e": "node scripts/e2e.mjs",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.8",

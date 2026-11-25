@@ -22,6 +22,7 @@ const check = (n, ok, detail = "") => {
 const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH ?? "/opt/pw-browsers/chromium" });
 const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
 page.setDefaultTimeout(60_000);
+page.on("dialog", (d) => void d.accept());
 const shot = (name) => page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
 
 try {
@@ -38,6 +39,63 @@ try {
     await page.fill("#password", PASSWORD);
     await page.click("button[type=submit]");
   }
+  // ---------------- NEXUS workspace (synthetic world) ----------------
+  await page.waitForSelector('[data-testid="nexus-request"]');
+  check("N1 NEXUS workspace is the home page", true);
+  await page.fill('[data-testid="nexus-request"]', "Find Asma and Siva in Chennai. They may be running a garments business. Asma may also be associated with a Montessori school.");
+  if (!(await page.isChecked('[data-testid="nexus-synthetic"]'))) await page.check('[data-testid="nexus-synthetic"]');
+  await page.click('[data-testid="nexus-start"]');
+  await page.waitForFunction(() => document.querySelector('[data-testid=nexus-status]')?.textContent === "completed", null, { timeout: 120_000 });
+  check("N2 Multi-engine investigation completes", true, (await page.textContent('[data-testid="nexus-stop-reason"]')) ?? "");
+  const clueTxt = (await page.locator('[data-testid="nexus-clue-name"]').allTextContents()).join(" ");
+  check("N3 Exact names kept + Tamil variants", /Asma/.test(clueTxt) && /Siva/.test(clueTxt) && clueTxt.includes("சிவா") && clueTxt.includes("அஸ்மா"));
+  check("N4 Graph shows evidence-backed entities", (await page.locator('[data-testid="nexus-graph-node"]').count()) >= 6);
+  check("N5 Synthetic data is clearly labelled", await page.isVisible('[data-testid="nexus-synthetic-banner"]'));
+  check("N6 Free-quota event shown, other engines continued", await page.isVisible('[data-testid="nexus-quota"]'));
+  await shot("N1-nexus-complete");
+  const tab = (re) => page.getByRole("tab", { name: re }).click();
+  await tab(/Engine findings/);
+  check("N7 A · Engine findings (per engine)", (await page.locator('[data-testid="nexus-findings"] > li').count()) > 0);
+  await tab(/Possible matches/);
+  check("N8 B · Possible matches with matches/conflicts/unknowns", (await page.locator('[data-testid="nexus-match"]').count()) >= 3 && (await page.textContent('[data-testid="nexus-matches"]')).includes("Unknown"));
+  await page.locator('[data-testid="nexus-confirm"]').first().click();
+  check("N9 User confirm decision", (await page.textContent('[data-testid="nexus-matches"]')).includes("Confirmed"));
+  await shot("N2-nexus-matches");
+  await tab(/Relationships/);
+  check("N10 C · Relationships with evidence quotes", (await page.locator('[data-testid="nexus-relationships"] blockquote').count()) > 0);
+  await tab(/Source evidence/);
+  const ev = await page.textContent('[data-testid="nexus-evidence"]');
+  check("N11 D · Evidence ledger (copy group, robots-blocked, contradiction)", ev.includes("copy group") && ev.includes("blocked robots") && ev.includes("Contradicted"));
+  await tab(/Investigation trail/);
+  check("N12 E · Investigation trail", (await page.locator('[data-testid="nexus-trail"] li').count()) > 10);
+  await tab(/Unresolved leads/);
+  check("N13 F · Unresolved leads", await page.isVisible('[data-testid="nexus-tab-leads"]'));
+  await tab(/Public contacts/);
+  check("N14 Public contacts attributed to organisations", (await page.textContent('[data-testid="nexus-contacts"]')).includes("info@sivasma-garments.example"));
+  await tab(/Coverage/);
+  check("N15 Coverage / reconciliation", (await page.textContent('[data-testid="nexus-coverage"]')).includes("Inaccessible"));
+  const [dl] = await Promise.all([page.waitForEvent("download"), page.click('[data-testid="nexus-export"]')]);
+  const exported = JSON.parse(fs.readFileSync(await dl.path(), "utf8"));
+  check("N16 JSON export (versioned, no secrets)", exported.schema === "nexus.investigation" && exported.schemaVersion === 1 && !JSON.stringify(exported).match(/FREELLMAPI_API_KEY|Bearer /));
+  check("N17 Workspace not cleared after export", await page.isVisible('[data-testid="nexus-graph"]'));
+  await page.reload();
+  await page.waitForSelector('[data-testid="nexus-recovery"]');
+  await page.click('[data-testid="nexus-restore"]');
+  await page.waitForSelector('[data-testid="nexus-graph"]');
+  check("N18 IndexedDB autosave recovery", true);
+  await page.setInputFiles('[data-testid="nexus-import"]', { name: "bad.json", mimeType: "application/json", buffer: Buffer.from('{"schema":"other"}') });
+  await page.waitForFunction(() => document.querySelector('[data-testid=nexus-message]')?.textContent?.includes("Import rejected"), null, { timeout: 10_000 }).catch(() => null);
+  check("N19 Import validation rejects foreign files", ((await page.textContent('[data-testid="nexus-message"]')) ?? "").includes("Import rejected"));
+  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  await mobile.context().addCookies(await page.context().cookies());
+  await mobile.goto(BASE);
+  await mobile.waitForSelector('[data-testid="nexus-request"]');
+  check("N20 Mobile layout without horizontal scroll", (await mobile.evaluate(() => document.documentElement.scrollWidth)) <= 390);
+  await mobile.screenshot({ path: `${OUT}/N3-nexus-mobile.png` });
+  await mobile.close();
+
+  // ---------------- Legacy person-search console ----------------
+  await page.goto(`${BASE}/person-search`);
   await page.waitForSelector('[data-testid="find-person-form"]');
   check("1  Open application", true);
   await shot("01-empty-search");

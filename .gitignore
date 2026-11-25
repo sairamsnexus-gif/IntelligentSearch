@@ -40,3 +40,7 @@ yarn-error.log*
 # vercel
 .vercel
 /e2e-artifacts/
+
+# NEXUS: never commit investigation exports (personal investigation data) or test artifacts
+nexus-*.json
+*.nexus.json

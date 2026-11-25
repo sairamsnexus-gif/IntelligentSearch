@@ -1,0 +1,18 @@
+# NEXUS on Netlify (free tier) — hosted mode.
+#  * No database: investigations live in the browser (IndexedDB) and in exported JSON files.
+#  * Login: single operator from NEXUS_OPERATOR_EMAIL + NEXUS_OPERATOR_PASSWORD_HASH (npm run hash-password).
+#  * Each function call executes ONE short unit task (one search, one page read, one job poll);
+#    the browser orchestrates rounds, so no long crawl runs inside a serverless function.
+#  * Operator-only engines (GPT Researcher, SpiderFoot, Maigret, a localhost SearXNG/FreeLLMAPI)
+#    are reported "unavailable" in hosted mode — run NEXUS locally for the full engine set.
+# Required site env vars: AUTH_SECRET, NEXUS_OPERATOR_EMAIL, NEXUS_OPERATOR_PASSWORD_HASH.
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXUS_HOSTED = "true"
+  RUN_WORKER_IN_PROCESS = "false"
+  NEXT_TELEMETRY_DISABLED = "1"
+# Security headers are set by next.config.ts for every route.

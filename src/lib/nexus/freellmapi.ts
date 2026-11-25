@@ -49,6 +49,13 @@ export function gatewayConfig(): { ok: boolean; reason: string; baseUrl?: string
 const g = globalThis as unknown as { __nexusLlm?: { day: string; calls: number; blockedUntil: number } };
 const state = (g.__nexusLlm ??= { day: "", calls: 0, blockedUntil: 0 });
 
+/** Test helper: clear the in-process call counter and quota block. */
+export function resetGatewayState() {
+  state.day = "";
+  state.calls = 0;
+  state.blockedUntil = 0;
+}
+
 export function gatewayBlocked(): GatewayQuota | null {
   const day = new Date().toISOString().slice(0, 10);
   if (state.day !== day) {

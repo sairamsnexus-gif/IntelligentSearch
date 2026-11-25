@@ -131,7 +131,7 @@ Rules:
 - Only facts involving these names (or their spellings/scripts) or the organisations they are linked to: {{NAMES}}.
 - At most 8 facts. Return {"facts":[]} if none.`;
 
-async function llmFacts(text: string, req: ExecuteRequest): Promise<{ facts: LlmFact[]; calls: number; tokens: number; quota?: TaskResult["quota"]; note?: string }> {
+export async function llmFacts(text: string, req: ExecuteRequest): Promise<{ facts: LlmFact[]; calls: number; tokens: number; quota?: TaskResult["quota"]; note?: string }> {
   const l = req.context.llm;
   if (!l.enabled || l.remainingCalls <= 0 || !gatewayConfig().ok) return { facts: [], calls: 0, tokens: 0 };
   const tn = norm(text);

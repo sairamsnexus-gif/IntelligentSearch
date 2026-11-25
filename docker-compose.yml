@@ -1,5 +1,10 @@
-# Full local stack. Minimal dev needs none of this (`npm run dev` uses embedded Postgres + demo mode).
-#   docker compose up -d postgres searxng osint-python      # providers only; run the app with npm run dev
+# NEXUS local (operator-mode) stack. Every port is bound to 127.0.0.1 — nothing here is
+# exposed publicly (FreeLLMAPI's dashboard and unified key must never be public).
+# Minimal dev needs none of this (`npm run dev` + the synthetic demo world).
+#   docker compose up -d searxng osint-python               # SearXNG + Maigret
+#   docker compose --profile engines up -d                  # + GPT Researcher sidecar + SpiderFoot
+#   docker compose --profile llm up -d freellmapi           # FreeLLMAPI gateway (add FREE providers in its dashboard)
+#   docker compose up -d postgres                           # only for the legacy console with Postgres
 #   docker compose --profile app up -d --build              # everything in containers
 #   docker compose --profile changedetection up -d          # optional changedetection.io
 services:
@@ -28,6 +33,35 @@ services:
     build: ./services/osint-python
     ports: ["127.0.0.1:8090:8090"]
 
+  gpt-researcher:
+    profiles: ["engines"]
+    build: ./services/gpt-researcher-sidecar
+    ports: ["127.0.0.1:8095:8095"]
+    environment:
+      SEARX_URL: http://searxng:8080
+      # Reached from inside Docker; the gateway must still be bound to localhost on the host.
+      FREELLMAPI_BASE_URL: ${GPTR_FREELLMAPI_BASE_URL:-http://freellmapi:3001}
+      FREELLMAPI_API_KEY: ${FREELLMAPI_API_KEY:-}
+      FREELLMAPI_MODEL: ${FREELLMAPI_MODEL:-auto}
+      NEXUS_GPTR_EMBEDDING: ${NEXUS_GPTR_EMBEDDING:-custom:auto}
+
+  spiderfoot:
+    profiles: ["engines"]
+    # Upstream MIT image built from github.com/smicallef/spiderfoot (no password file: keep it on 127.0.0.1).
+    build: https://github.com/smicallef/spiderfoot.git#v4.0
+    ports: ["127.0.0.1:5001:5001"]
+    volumes: [sfdata:/var/lib/spiderfoot]
+
+  freellmapi:
+    profiles: ["llm"]
+    # github.com/joshcohen-ai/free-ai-tokens (MIT). Single-user: dashboard + unified key stay local.
+    build: https://github.com/joshcohen-ai/free-ai-tokens.git
+    ports: ["127.0.0.1:3001:3001"]
+    environment:
+      HOST: 0.0.0.0
+      ENCRYPTION_KEY: ${FREELLMAPI_ENCRYPTION_KEY:?set FREELLMAPI_ENCRYPTION_KEY (openssl rand -hex 32)}
+    volumes: [fladata:/app/server/data]
+
   changedetection:
     profiles: ["changedetection"]
     image: ghcr.io/dgtlmoon/changedetection.io:latest
@@ -42,6 +76,8 @@ services:
       DATABASE_URL: postgres://intelligentsearch:${POSTGRES_PASSWORD:-intelligentsearch}@postgres:5432/intelligentsearch
       SEARXNG_URL: http://searxng:8080
       MAIGRET_SERVICE_URL: http://osint-python:8090
+      GPTR_SERVICE_URL: http://gpt-researcher:8095
+      SPIDERFOOT_URL: http://spiderfoot:5001
       RUN_WORKER_IN_PROCESS: "false"
       APP_ENV: production
     ports: ["127.0.0.1:3000:3000"]
@@ -64,3 +100,5 @@ services:
 volumes:
   pgdata: {}
   cddata: {}
+  sfdata: {}
+  fladata: {}
